@@ -55,6 +55,7 @@ from app.sprint_routes import router as sprint_router
 from app.time_routes import router as time_router
 from app.notification_routes import router as notification_router
 from app.report_routes import router as report_router
+from app.ai_intelligence_routes import router as ai_intelligence_router
 
 
 from app.schemas import (
@@ -154,6 +155,10 @@ app.include_router(
 
 app.include_router(
     report_router,
+    prefix=""
+)
+app.include_router(
+    ai_intelligence_router,
     prefix=""
 )
 

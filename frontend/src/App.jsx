@@ -1,4 +1,17 @@
 ﻿import { useEffect, useState } from "react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+} from "recharts";
 import "./App.css";
 
 const API_URL = "http://127.0.0.1:8000";
@@ -92,6 +105,17 @@ function App() {
   const [issuePage, setIssuePage] = useState(1);
   const [selectedIssue, setSelectedIssue] = useState(null);
   const [developers, setDevelopers] = useState([]);
+  const [issueReport, setIssueReport] = useState(null);
+  const [developerWorkload, setDeveloperWorkload] = useState([]);
+  const [riskRadarResult, setRiskRadarResult] = useState(null);
+  const [fixImpactResult, setFixImpactResult] = useState(null);
+  const [historicalResult, setHistoricalResult] = useState(null);
+const [evidenceResult, setEvidenceResult] = useState(null);
+const [investigationResult, setInvestigationResult] = useState(null);
+
+const [evidenceQuestion, setEvidenceQuestion] = useState("");
+const [evidenceText, setEvidenceText] = useState("");
+const [investigationIssueId, setInvestigationIssueId] = useState("");
     // TIME TRACKING
   const [issueTimeLogs, setIssueTimeLogs] = useState({});
   const [issueTimeTotals, setIssueTimeTotals] = useState({});
@@ -598,6 +622,55 @@ useEffect(() => {
       setRecentActivityLoading(false);
     }
   };
+  const loadAnalyticsData = async () => {
+  const token = sessionStorage.getItem("token");
+
+  if (!token) return;
+
+  try {
+    const headers = {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    };
+
+    const [reportResponse, workloadResponse] = await Promise.all([
+      fetch(`${API_URL}/reports/issues`, {
+        method: "GET",
+        headers,
+      }),
+
+      fetch(`${API_URL}/reports/workload`, {
+        method: "GET",
+        headers,
+      }),
+    ]);
+
+    if (
+      reportResponse.status === 401 ||
+      workloadResponse.status === 401
+    ) {
+      logout();
+      return;
+    }
+
+    if (reportResponse.ok) {
+      const reportData = await reportResponse.json();
+      setIssueReport(reportData);
+    }
+
+    if (workloadResponse.ok) {
+      const workloadData = await workloadResponse.json();
+
+      setDeveloperWorkload(
+        Array.isArray(workloadData)
+          ? workloadData
+          : []
+      );
+    }
+  } catch (error) {
+    console.error("Analytics loading error:", error);
+  }
+};
 
   const loadDashboardData = async () => {
     setLoading(true);
@@ -701,6 +774,7 @@ useEffect(() => {
           ? developerData
           : []
       );
+      await loadAnalyticsData();
     } catch (error) {
       console.error(
         "Dashboard loading error:",
@@ -708,6 +782,215 @@ useEffect(() => {
       );
     } finally {
       setLoading(false);
+    }
+  };
+    // =====================================================
+  // HISTORICAL RESOLUTION INTELLIGENCE
+  // =====================================================
+
+  const analyzeHistoricalResolution = async (issueId) => {
+    const issue = issues.find(
+      (item) => String(item.id) === String(issueId)
+    );
+
+    if (!issue) {
+      alert("Please select an issue.");
+      return;
+    }
+
+    const token = sessionStorage.getItem("token");
+
+    if (!token) {
+      alert("Your session has expired. Please login again.");
+      logout();
+      return;
+    }
+
+    const historicalIssues = issues
+      .filter(
+        (item) =>
+          String(item.id) !== String(issue.id) &&
+          ["Resolved", "Closed"].includes(item.status)
+      )
+      .slice(0, 30);
+
+    try {
+      const response = await fetch(
+        `${API_URL}/ai/historical-resolution`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            title: issue.title || "",
+            description: issue.description || "",
+            category: issue.category || "Other",
+            module: issue.module || "Unknown",
+            severity: issue.severity || "Medium",
+            priority: issue.priority || "Medium",
+            historical_issues: historicalIssues,
+          }),
+        }
+      );
+
+      const data = await response.json().catch(() => ({}));
+
+      if (response.status === 401) {
+        logout();
+        return;
+      }
+
+      if (!response.ok) {
+        alert(
+          data.detail ||
+          "Historical resolution analysis failed."
+        );
+        return;
+      }
+
+      setHistoricalResult(data);
+    } catch (error) {
+      console.error(
+        "Historical resolution error:",
+        error
+      );
+      alert("Cannot connect to the BugFlow backend.");
+    }
+  };
+
+  // =====================================================
+  // EXPLAINABLE EVIDENCE EXPLORER
+  // =====================================================
+
+  const exploreEvidence = async () => {
+    if (!evidenceQuestion.trim()) {
+      alert("Please enter a question.");
+      return;
+    }
+
+    const token = sessionStorage.getItem("token");
+
+    if (!token) {
+      alert("Your session has expired. Please login again.");
+      logout();
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_URL}/ai/evidence-explorer`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            question: evidenceQuestion,
+            current_issue: "",
+            evidence: evidenceText
+              .split("\n")
+              .map((item) => item.trim())
+              .filter(Boolean),
+          }),
+        }
+      );
+
+      const data = await response.json().catch(() => ({}));
+
+      if (response.status === 401) {
+        logout();
+        return;
+      }
+
+      if (!response.ok) {
+        alert(
+          data.detail ||
+          "Evidence analysis failed."
+        );
+        return;
+      }
+
+      setEvidenceResult(data);
+    } catch (error) {
+      console.error(
+        "Evidence explorer error:",
+        error
+      );
+      alert("Cannot connect to the BugFlow backend.");
+    }
+  };
+
+  // =====================================================
+  // AI-POWERED ISSUE INVESTIGATION
+  // =====================================================
+
+  const investigateIssue = async (issueId) => {
+    const issue = issues.find(
+      (item) => String(item.id) === String(issueId)
+    );
+
+    if (!issue) {
+      alert("Please select an issue.");
+      return;
+    }
+
+    const token = sessionStorage.getItem("token");
+
+    if (!token) {
+      alert("Your session has expired. Please login again.");
+      logout();
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_URL}/ai/issue-investigation`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            title: issue.title || "",
+            description: issue.description || "",
+            category: issue.category || "Other",
+            module: issue.module || "Unknown",
+            severity: issue.severity || "Medium",
+            priority: issue.priority || "Medium",
+            historical_context: [],
+          }),
+        }
+      );
+
+      const data = await response.json().catch(() => ({}));
+
+      if (response.status === 401) {
+        logout();
+        return;
+      }
+
+      if (!response.ok) {
+        alert(
+          data.detail ||
+          "Issue investigation failed."
+        );
+        return;
+      }
+
+      setInvestigationResult(data);
+    } catch (error) {
+      console.error(
+        "Issue investigation error:",
+        error
+      );
+      alert("Cannot connect to the BugFlow backend.");
     }
   };
   // =====================================================
@@ -5640,15 +5923,13 @@ const clearNotifications = async () => {
               const categoryItems = makeDistribution("category");
               const moduleItems = makeDistribution("module");
 
-              const developerItems = developers
-                .map((developer) => ({
-                  label: developer.name || `Developer ${developer.id}`,
-                  value: issues.filter(
-                    (issue) => String(issue.assigned_to ?? "") === String(developer.id)
-                  ).length,
-                }))
-                .sort((a, b) => b.value - a.value)
-                .slice(0, 8);
+             const developerItems = developerWorkload
+  .map((developer) => ({
+    label: developer.name || `Developer ${developer.user_id}`,
+    value: developer.total || 0,
+  }))
+  .sort((a, b) => b.value - a.value)
+  .slice(0, 8);
 
               const assignedCount = issues.filter((issue) => issue.assigned_to).length;
               const resolutionRate = totalIssues
@@ -8057,7 +8338,617 @@ const clearNotifications = async () => {
                 </div>
               )}
             </div>
+            {/* 3. AI DEFECT RISK RADAR */}
+<div
+  style={{
+    marginTop: "18px",
+    padding: "18px",
+    border: "1px solid #e2e8f0",
+    borderRadius: "14px",
+  }}
+>
+  <h3 style={{ marginTop: 0 }}>
+    🎯 3. AI Defect Risk Radar
+  </h3>
 
+  <p style={{ color: "#64748b" }}>
+    Analyze the risk level of a selected defect.
+  </p>
+
+  <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+    <select
+      value={resolutionIssueId}
+      onChange={(e) => {
+        setResolutionIssueId(e.target.value);
+        setRiskRadarResult(null);
+      }}
+      style={{
+        flex: 1,
+        minWidth: "260px",
+        padding: "12px",
+        border: "1px solid #cbd5e1",
+        borderRadius: "9px",
+      }}
+    >
+      <option value="">Select an issue</option>
+
+      {issues.map((issue) => (
+        <option key={issue.id} value={issue.id}>
+          #{issue.id} - {issue.title}
+        </option>
+      ))}
+    </select>
+
+    <button
+      className="primary-button"
+      onClick={async () => {
+        const issue = issues.find(
+          (item) =>
+            String(item.id) ===
+            String(resolutionIssueId)
+        );
+
+        if (!issue) {
+          alert("Please select an issue.");
+          return;
+        }
+
+        try {
+          const token =
+            sessionStorage.getItem("token");
+
+          const response = await fetch(
+            `${API_URL}/ai/risk-radar`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                title: issue.title || "",
+                description: issue.description || "",
+                severity: issue.severity || "Medium",
+                priority: issue.priority || "Medium",
+                status: issue.status || "Open",
+                issue_age_days: 0,
+                reopened_count: 0,
+                assigned: Boolean(issue.assigned_to),
+                role:"Manager",
+              }),
+            }
+          );
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(
+              data.detail || "Risk analysis failed."
+            );
+          }
+
+          setRiskRadarResult(data);
+        } catch (error) {
+          console.error("Risk Radar error:", error);
+          alert(error.message);
+        }
+      }}
+    >
+      Analyze Risk
+    </button>
+  </div>
+
+  {riskRadarResult && (
+    <div
+      style={{
+        marginTop: "16px",
+        padding: "16px",
+        background: "#f8fafc",
+        borderRadius: "12px",
+      }}
+    >
+      <h4>Risk Analysis Result</h4>
+
+      <p>
+        <strong>Risk Level:</strong>{" "}
+        {riskRadarResult.risk_level}
+      </p>
+
+      <p>
+        <strong>Risk Score:</strong>{" "}
+        {riskRadarResult.risk_score}/100
+      </p>
+
+      <p>
+        <strong>Risk Factors:</strong>
+      </p>
+
+      <ul>
+        {(riskRadarResult.risk_factors || []).map(
+          (factor, index) => (
+            <li key={index}>{factor}</li>
+          )
+        )}
+      </ul>
+
+      <p>
+        <strong>Recommendation:</strong>{" "}
+        {riskRadarResult.recommendation}
+      </p>
+
+      <p>
+        <strong>Role Focus:</strong>{" "}
+        {riskRadarResult.role_focus}
+      </p>
+    </div>
+  )}
+    {/* 🔧 AI BUG FIX IMPACT PREDICTOR */}
+  <div
+    style={{
+      marginTop: "20px",
+      paddingTop: "18px",
+      borderTop: "1px solid #e2e8f0",
+    }}
+  >
+    <h3 style={{ marginTop: 0 }}>
+      🔧 AI Bug Fix Impact Predictor
+    </h3>
+
+    <p style={{ color: "#64748b" }}>
+      Predict the impact and regression risk of a proposed fix.
+    </p>
+
+    <textarea
+      id="fix-description"
+      placeholder="Describe the proposed fix..."
+      style={{
+        width: "100%",
+        minHeight: "80px",
+        boxSizing: "border-box",
+        padding: "12px",
+        border: "1px solid #cbd5e1",
+        borderRadius: "9px",
+        resize: "vertical",
+      }}
+    />
+
+    <button
+      className="primary-button"
+      style={{ marginTop: "10px" }}
+      onClick={async () => {
+        const issue = issues.find(
+          (item) =>
+            String(item.id) ===
+            String(resolutionIssueId)
+        );
+
+        if (!issue) {
+          alert("Please select an issue first.");
+          return;
+        }
+
+        const fixDescription =
+          document.getElementById("fix-description")?.value || "";
+
+        try {
+          const token = sessionStorage.getItem("token");
+
+          const response = await fetch(
+            `${API_URL}/ai/fix-impact`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                title: issue.title || "",
+                description: issue.description || "",
+                module: issue.module || "Unknown",
+                category: issue.category || "Other",
+                severity: issue.severity || "Medium",
+                priority: issue.priority || "Medium",
+                fix_description: fixDescription,
+              }),
+            }
+          );
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(
+              data.detail || "Fix impact prediction failed."
+            );
+          }
+
+          setFixImpactResult(data);
+        } catch (error) {
+          console.error("Fix Impact error:", error);
+          alert(
+            error.message ||
+              "Unable to predict fix impact."
+          );
+        }
+      }}
+    >
+      Predict Fix Impact
+    </button>
+
+    {fixImpactResult && (
+      <div
+        style={{
+          marginTop: "14px",
+          padding: "16px",
+          background: "#f8fafc",
+          borderRadius: "12px",
+        }}
+      >
+        <h4 style={{ marginTop: 0 }}>
+          Fix Impact Prediction
+        </h4>
+
+        <p>
+          <strong>Impact Level:</strong>{" "}
+          {fixImpactResult.impact_level}
+        </p>
+
+        <p>
+          <strong>Impact Score:</strong>{" "}
+          {fixImpactResult.impact_score}/100
+        </p>
+
+        <p>
+          <strong>Regression Risk:</strong>{" "}
+          {fixImpactResult.regression_risk}
+        </p>
+
+        <p>
+          <strong>Affected Areas:</strong>
+        </p>
+
+        <ul>
+          {(fixImpactResult.affected_areas || []).map(
+            (area, index) => (
+              <li key={index}>{area}</li>
+            )
+          )}
+        </ul>
+
+        <p>
+          <strong>Testing Recommendations:</strong>
+        </p>
+
+        <ul>
+          {(fixImpactResult.testing_recommendations || []).map(
+            (test, index) => (
+              <li key={index}>{test}</li>
+            )
+          )}
+        </ul>
+
+        <p>
+          <strong>Recommendation:</strong>{" "}
+          {fixImpactResult.recommendation}
+        </p>
+
+        <p>
+          <strong>Reasoning:</strong>{" "}
+          {fixImpactResult.reasoning}
+        </p>
+      </div>
+    )}
+  </div>
+</div>
+{/* 5. HISTORICAL RESOLUTION INTELLIGENCE */}
+<div
+  style={{
+    marginTop: "18px",
+    padding: "18px",
+    border: "1px solid #e2e8f0",
+    borderRadius: "14px",
+  }}
+>
+  <h3 style={{ marginTop: 0 }}>
+    🧠 5. Historical Resolution Intelligence
+  </h3>
+
+  <p style={{ color: "#64748b" }}>
+    Find similar resolved defects and reuse previous root-cause
+    and resolution knowledge.
+  </p>
+
+  <select
+    value={resolutionIssueId}
+    onChange={(e) => setResolutionIssueId(e.target.value)}
+    style={{
+      width: "100%",
+      padding: "12px",
+      border: "1px solid #cbd5e1",
+      borderRadius: "9px",
+      boxSizing: "border-box",
+    }}
+  >
+    <option value="">Select an issue</option>
+
+    {issues.map((issue) => (
+      <option key={issue.id} value={issue.id}>
+        #{issue.id} — {issue.title}
+      </option>
+    ))}
+  </select>
+
+  <button
+    type="button"
+    className="primary-button"
+    style={{ marginTop: "10px" }}
+    onClick={() =>
+      analyzeHistoricalResolution(resolutionIssueId)
+    }
+  >
+    Analyze History
+  </button>
+
+  {historicalResult && (
+    <div
+      style={{
+        marginTop: "14px",
+        padding: "16px",
+        background: "#f8fafc",
+        borderRadius: "12px",
+      }}
+    >
+      <h4 style={{ marginTop: 0 }}>
+        Historical Analysis
+      </h4>
+
+      <p>
+        <strong>Root Cause:</strong>{" "}
+        {historicalResult.root_cause || "Not identified"}
+      </p>
+
+      <p>
+        <strong>Previous Resolution:</strong>{" "}
+        {historicalResult.previous_resolution ||
+          "No previous resolution found"}
+      </p>
+
+      <p>
+        <strong>Investigation Guidance:</strong>{" "}
+        {historicalResult.investigation_guidance ||
+          "No guidance available"}
+      </p>
+
+      <p>
+        <strong>Related Historical Defects:</strong>
+      </p>
+
+      <ul>
+        {(historicalResult.matches || []).map(
+          (match, index) => (
+            <li key={index}>
+              #{match.id} — {match.title || "Historical issue"}
+            </li>
+          )
+        )}
+      </ul>
+    </div>
+  )}
+</div>
+
+{/* 6. EXPLAINABLE EVIDENCE EXPLORER */}
+<div
+  style={{
+    marginTop: "18px",
+    padding: "18px",
+    border: "1px solid #e2e8f0",
+    borderRadius: "14px",
+  }}
+>
+  <h3 style={{ marginTop: 0 }}>
+    🔎 6. Explainable RAG / Evidence Explorer
+  </h3>
+
+  <p style={{ color: "#64748b" }}>
+    Ask a question and understand the evidence behind the AI answer.
+  </p>
+
+  <input
+    value={evidenceQuestion}
+    onChange={(e) => setEvidenceQuestion(e.target.value)}
+    placeholder="Ask a question about the evidence..."
+    style={{
+      width: "100%",
+      padding: "12px",
+      border: "1px solid #cbd5e1",
+      borderRadius: "9px",
+      boxSizing: "border-box",
+    }}
+  />
+
+  <textarea
+    value={evidenceText}
+    onChange={(e) => setEvidenceText(e.target.value)}
+    placeholder="Enter evidence, one item per line..."
+    rows={5}
+    style={{
+      width: "100%",
+      marginTop: "10px",
+      padding: "12px",
+      border: "1px solid #cbd5e1",
+      borderRadius: "9px",
+      boxSizing: "border-box",
+      resize: "vertical",
+    }}
+  />
+
+  <button
+    type="button"
+    className="primary-button"
+    style={{ marginTop: "10px" }}
+    onClick={exploreEvidence}
+  >
+    Explain Evidence
+  </button>
+
+  {evidenceResult && (
+    <div
+      style={{
+        marginTop: "14px",
+        padding: "16px",
+        background: "#f8fafc",
+        borderRadius: "12px",
+      }}
+    >
+      <h4 style={{ marginTop: 0 }}>
+        Evidence Analysis
+      </h4>
+
+      <p>
+        <strong>Answer:</strong>{" "}
+        {evidenceResult.answer || "No answer generated"}
+      </p>
+
+      <p>
+        <strong>Confidence:</strong>{" "}
+        {evidenceResult.confidence || "Unknown"}
+      </p>
+
+      <p>
+        <strong>Evidence Used:</strong>
+      </p>
+
+      <ul>
+        {(evidenceResult.evidence_used || []).map(
+          (item, index) => (
+            <li key={index}>{item}</li>
+          )
+        )}
+      </ul>
+
+      <p>
+        <strong>Explanation:</strong>{" "}
+        {evidenceResult.explanation ||
+          "No explanation available"}
+      </p>
+    </div>
+  )}
+</div>
+
+{/* 7. AI-POWERED ISSUE INVESTIGATION */}
+<div
+  style={{
+    marginTop: "18px",
+    padding: "18px",
+    border: "1px solid #e2e8f0",
+    borderRadius: "14px",
+  }}
+>
+  <h3 style={{ marginTop: 0 }}>
+    🕵️ 7. AI-Powered Issue Investigation
+  </h3>
+
+  <p style={{ color: "#64748b" }}>
+    Analyze an issue, identify possible root causes, and get
+    investigation guidance.
+  </p>
+
+  <select
+    value={investigationIssueId}
+    onChange={(e) =>
+      setInvestigationIssueId(e.target.value)
+    }
+    style={{
+      width: "100%",
+      padding: "12px",
+      border: "1px solid #cbd5e1",
+      borderRadius: "9px",
+      boxSizing: "border-box",
+    }}
+  >
+    <option value="">Select an issue</option>
+
+    {issues.map((issue) => (
+      <option key={issue.id} value={issue.id}>
+        #{issue.id} — {issue.title}
+      </option>
+    ))}
+  </select>
+
+  <button
+    type="button"
+    className="primary-button"
+    style={{ marginTop: "10px" }}
+    onClick={() =>
+      investigateIssue(investigationIssueId)
+    }
+  >
+    Investigate Issue
+  </button>
+
+  {investigationResult && (
+    <div
+      style={{
+        marginTop: "14px",
+        padding: "16px",
+        background: "#f8fafc",
+        borderRadius: "12px",
+      }}
+    >
+      <h4 style={{ marginTop: 0 }}>
+        Investigation Result
+      </h4>
+
+      <p>
+        <strong>Problem Summary:</strong>{" "}
+        {investigationResult.problem_summary ||
+          "Not available"}
+      </p>
+
+      <p>
+        <strong>Possible Root Causes:</strong>
+      </p>
+
+      <ul>
+        {(investigationResult.possible_root_causes || []).map(
+          (cause, index) => (
+            <li key={index}>{cause}</li>
+          )
+        )}
+      </ul>
+
+      <p>
+        <strong>Investigation Steps:</strong>
+      </p>
+
+      <ol>
+        {(investigationResult.investigation_steps || []).map(
+          (step, index) => (
+            <li key={index}>{step}</li>
+          )
+        )}
+      </ol>
+
+      <p>
+        <strong>Historical Insight:</strong>{" "}
+        {investigationResult.historical_insight ||
+          "No historical insight available"}
+      </p>
+
+      <p>
+        <strong>Recommended Action:</strong>{" "}
+        {investigationResult.recommended_action ||
+          "No recommendation available"}
+      </p>
+
+      <p>
+        <strong>Confidence:</strong>{" "}
+        {investigationResult.confidence || "Unknown"}
+      </p>
+    </div>
+  )}
+</div>
             {/* 3. KNOWLEDGE BASE */}
             <div style={{ marginTop: "18px", padding: "18px", border: "1px solid #e2e8f0", borderRadius: "14px" }}>
               <h3 style={{ marginTop: 0 }}>📚 3. Historical Resolution Knowledge Base</h3>
