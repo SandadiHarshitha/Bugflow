@@ -6,7 +6,8 @@ from sqlalchemy import (
     DateTime,
     Float,
     Boolean,
-    func
+    func,
+    Index
 )
 
 from app.database import Base
@@ -43,7 +44,8 @@ class User(Base):
 
     role = Column(
         String(50),
-        nullable=False
+        nullable=False,
+        index=True
     )
 
 
@@ -96,12 +98,14 @@ class Issue(Base):
 
     status = Column(
         String(50),
-        nullable=False
+        nullable=False,
+        index=True
     )
 
     priority = Column(
         String(50),
-        nullable=False
+        nullable=False,
+        index=True
     )
 
     # ==================================================
@@ -110,22 +114,26 @@ class Issue(Base):
 
     category = Column(
         String(100),
-        nullable=True
+        nullable=True,
+        index=True
     )
 
     module = Column(
         String(100),
-        nullable=True
+        nullable=True,
+        index=True
     )
 
     defect_type = Column(
         String(100),
-        nullable=True
+        nullable=True,
+        index=True
     )
 
     severity = Column(
         String(50),
-        nullable=True
+        nullable=True,
+        index=True
     )
 
     # ==================================================
@@ -135,19 +143,22 @@ class Issue(Base):
     created_by = Column(
         Integer,
         ForeignKey("users.id"),
-        nullable=False
+        nullable=False,
+        index=True
     )
 
     project_id = Column(
         Integer,
         ForeignKey("projects.id"),
-        nullable=False
+        nullable=False,
+        index=True
     )
 
     assigned_to = Column(
         Integer,
         ForeignKey("users.id"),
-        nullable=True
+        nullable=True,
+        index=True
     )
 
 
@@ -172,18 +183,21 @@ class Comment(Base):
     created_by = Column(
         Integer,
         ForeignKey("users.id"),
-        nullable=False
+        nullable=False,
+        index=True
     )
 
     issue_id = Column(
         Integer,
         ForeignKey("issues.id"),
-        nullable=False
+        nullable=False,
+        index=True
     )
 
     created_at = Column(
         DateTime,
-        server_default=func.now()
+        server_default=func.now(),
+        index=True
     )
 
 
@@ -203,18 +217,21 @@ class IssueActivity(Base):
     issue_id = Column(
         Integer,
         ForeignKey("issues.id"),
-        nullable=False
+        nullable=False,
+        index=True
     )
 
     user_id = Column(
         Integer,
         ForeignKey("users.id"),
-        nullable=False
+        nullable=False,
+        index=True
     )
 
     action = Column(
         String(100),
-        nullable=False
+        nullable=False,
+        index=True
     )
 
     details = Column(
@@ -224,7 +241,8 @@ class IssueActivity(Base):
 
     created_at = Column(
         DateTime,
-        server_default=func.now()
+        server_default=func.now(),
+        index=True
     )
 
 
@@ -244,13 +262,15 @@ class IssueAttachment(Base):
     issue_id = Column(
         Integer,
         ForeignKey("issues.id"),
-        nullable=False
+        nullable=False,
+        index=True
     )
 
     uploaded_by = Column(
         Integer,
         ForeignKey("users.id"),
-        nullable=False
+        nullable=False,
+        index=True
     )
 
     filename = Column(
@@ -270,7 +290,8 @@ class IssueAttachment(Base):
 
     created_at = Column(
         DateTime,
-        server_default=func.now()
+        server_default=func.now(),
+        index=True
     )
 
 
@@ -290,13 +311,15 @@ class TimeLog(Base):
     issue_id = Column(
         Integer,
         ForeignKey("issues.id", ondelete="CASCADE"),
-        nullable=False
+        nullable=False,
+        index=True
     )
 
     user_id = Column(
         Integer,
         ForeignKey("users.id"),
-        nullable=False
+        nullable=False,
+        index=True
     )
 
     hours = Column(
@@ -311,7 +334,8 @@ class TimeLog(Base):
 
     created_at = Column(
         DateTime,
-        server_default=func.now()
+        server_default=func.now(),
+        index=True
     )
 
 
@@ -331,13 +355,15 @@ class Notification(Base):
     user_id = Column(
         Integer,
         ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False
+        nullable=False,
+        index=True
     )
 
     issue_id = Column(
         Integer,
         ForeignKey("issues.id", ondelete="SET NULL"),
-        nullable=True
+        nullable=True,
+        index=True
     )
 
     message = Column(
@@ -348,16 +374,19 @@ class Notification(Base):
     notification_type = Column(
         String(50),
         nullable=False,
-        default="info"
+        default="info",
+        index=True
     )
 
     is_read = Column(
         Boolean,
         nullable=False,
-        default=False
+        default=False,
+        index=True
     )
 
     created_at = Column(
         DateTime,
-        server_default=func.now()
+        server_default=func.now(),
+        index=True
     )

@@ -322,6 +322,18 @@ async def defect_risk_radar(
             status_code=500,
             detail="Gemini API key is not configured.",
         )
+    role_focus_instructions = {
+        "Reporter": "Focus on the risk to the reported issue, user impact, and whether the issue needs attention or escalation.",
+        "Developer": "Focus on engineering risk, technical impact, implementation complexity, and regression risk.",
+        "Tester": "Focus on quality and verification risk, reproducibility, test coverage, and retesting needs.",
+        "Manager": "Focus on project and team risk, priority, delivery impact, assignment, and unresolved work.",
+        "Admin": "Focus on overall project risk, critical issues, system health, and cross-team impact.",
+    }
+
+    role_focus = role_focus_instructions.get(
+        data.role,
+        "Focus on the issue according to the user's responsibilities."
+    )
 
     prompt = f"""
 You are an AI defect risk analyst for a software issue tracking system.
@@ -338,6 +350,12 @@ Issue Age: {data.issue_age_days} days
 Reopened Count: {data.reopened_count}
 Assigned: {data.assigned}
 User Role: {data.role}
+
+ROLE-SPECIFIC FOCUS:
+{role_focus}
+
+The risk analysis MUST reflect the user's role.
+Do not give the same perspective for every role.
 
 Consider:
 - Severity
@@ -860,3 +878,370 @@ Rules:
         ),
         "confidence": confidence,
     }
+    # ============================================================
+# AI GITHUB CODE REVIEW + FIX SUGGESTIONS
+# ============================================================
+
+from urllib.parse import urlparse
+
+
+class GitHubCodeReviewRequest(BaseModel):
+    issue_id: int
+    issue_title: str
+    issue_description: str
+    repo_url: str
+    pr_number: int
+
+
+@router.post("/github-code-review")
+async def github_code_review(
+    data: GitHubCodeReviewRequest,
+    current_user: User = Depends(get_current_user),
+):
+    from app.main import GEMINI_API_KEY
+    import os
+
+    if not GEMINI_API_KEY:
+        raise HTTPException(
+            status_code=500,
+            detail="Gemini API key is not configured.",
+        )
+
+    repo_url = data.repo_url.strip().rstrip("/")
+
+    parsed = urlparse(repo_url)
+
+    if parsed.netloc.lower() != "github.com":
+        raise HTTPException(
+            status_code=400,
+            detail="Please provide a valid GitHub repository URL.",
+        )
+
+    repo_path = parsed.path.strip("/")
+
+    parts = repo_path.split("/")
+
+    if len(parts) < 2:
+        raise HTTPException(
+            status_code=400,
+            detail="GitHub repository URL must look like https://github.com/owner/repository",
+        )
+
+    owner = parts[0]
+    repo = parts[1]
+
+    if data.pr_number <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Pull request number must be greater than 0.",
+        )
+
+    github_url = (
+        f"https://api.github.com/repos/"
+        f"{owner}/{repo}/pulls/{data.pr_number}"
+    )
+
+    github_headers = {
+        "Accept": "application/vnd.github.v3.diff",
+        "User-Agent": "BugFlow",
+    }
+
+    github_token = os.getenv("GITHUB_TOKEN")
+
+    if github_token:
+        github_headers["Authorization"] = f"Bearer {github_token}"
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(
+                github_url,
+                headers=github_headers,
+            )
+
+        if response.status_code == 404:
+            raise HTTPException(
+                status_code=404,
+                detail="GitHub pull request not found. Check repository and PR number.",
+            )
+
+        if response.status_code != 200:
+            raise HTTPException(
+                status_code=500,
+                detail=f"GitHub API error: HTTP {response.status_code}",
+            )
+
+        diff = response.text[:18000]
+
+    except HTTPException:
+        raise
+
+    except Exception as error:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Unable to retrieve GitHub pull request: {error}",
+        )
+
+    if not diff.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="The pull request does not contain a readable code diff.",
+        )
+
+    prompt = f"""
+You are an AI code reviewer inside BugFlow.
+
+Review the GitHub pull request diff in relation to the BugFlow defect.
+
+BUGFLOW ISSUE:
+Title: {data.issue_title}
+Description: {data.issue_description}
+
+PULL REQUEST:
+Repository: {owner}/{repo}
+PR Number: {data.pr_number}
+
+CODE DIFF:
+{diff}
+
+Analyze the changes carefully.
+
+Look for:
+- likely bugs
+- runtime errors
+- logic errors
+- incorrect API usage
+- security problems
+- regression risks
+- missing validation
+- missing tests
+- code quality problems
+
+Return ONLY valid JSON:
+
+{{
+  "summary": "short overall review",
+  "risk_level": "Low|Medium|High",
+  "findings": [
+    {{
+      "severity": "Low|Medium|High|Critical",
+      "file": "file name",
+      "line": "line or changed section",
+      "issue": "problem found",
+      "reason": "why it matters"
+    }}
+  ],
+  "suggested_fixes": [
+    {{
+      "file": "file name",
+      "suggestion": "specific fix",
+      "code": "optional short code snippet"
+    }}
+  ],
+  "testing_recommendations": [
+    "test recommendation 1",
+    "test recommendation 2"
+  ]
+}}
+
+Rules:
+- Do not invent files or code that are not present in the diff.
+- If no important problem is found, return an empty findings list.
+- Keep findings concise.
+- Keep code snippets short.
+- Focus on useful engineering feedback.
+"""
+
+    result = await _gemini_json(
+        prompt,
+        GEMINI_API_KEY,
+    )
+
+    findings = result.get("findings", [])
+    fixes = result.get("suggested_fixes", [])
+    tests = result.get("testing_recommendations", [])
+
+    if not isinstance(findings, list):
+        findings = []
+
+    if not isinstance(fixes, list):
+        fixes = []
+
+    if not isinstance(tests, list):
+        tests = []
+
+    risk_level = str(
+        result.get("risk_level", "Medium")
+    )
+
+    if risk_level not in {"Low", "Medium", "High"}:
+        risk_level = "Medium"
+
+    return {
+        "issue_id": data.issue_id,
+        "repository": f"{owner}/{repo}",
+        "pr_number": data.pr_number,
+        "risk_level": risk_level,
+        "summary": str(
+            result.get(
+                "summary",
+                "AI code review completed."
+            )
+        ),
+        "findings": findings[:10],
+        "suggested_fixes": fixes[:10],
+        "testing_recommendations": tests[:10],
+    }
+    # ============================================================
+# PREDICTIVE SPRINT ANALYTICS
+# ============================================================
+
+class PredictiveSprintRequest(BaseModel):
+    sprint_name: str
+    total_issues: int = 0
+    completed_issues: int = 0
+    remaining_issues: int = 0
+    high_priority_issues: int = 0
+    unassigned_issues: int = 0
+    developer_count: int = 0
+    sprint_progress_percent: float = 0
+    historical_sprints: list[dict] = []
+
+
+@router.post("/predictive-sprint")
+async def predictive_sprint_analytics(
+    data: PredictiveSprintRequest,
+    current_user: User = Depends(get_current_user),
+):
+    from app.main import GEMINI_API_KEY
+
+    if not GEMINI_API_KEY:
+        raise HTTPException(
+            status_code=500,
+            detail="Gemini API key is not configured.",
+        )
+
+    prompt = f"""
+You are an AI Agile sprint analytics assistant.
+
+Analyze the current BugFlow sprint and predict whether it is at risk of failing.
+
+CURRENT SPRINT:
+Name: {data.sprint_name}
+Total Issues: {data.total_issues}
+Completed Issues: {data.completed_issues}
+Remaining Issues: {data.remaining_issues}
+High Priority Issues: {data.high_priority_issues}
+Unassigned Issues: {data.unassigned_issues}
+Developers: {data.developer_count}
+Sprint Progress: {data.sprint_progress_percent}%
+
+HISTORICAL SPRINT DATA:
+{data.historical_sprints[:10]}
+
+Analyze:
+- developer velocity
+- completion progress
+- remaining workload
+- high priority work
+- unassigned work
+- historical sprint performance
+- workload complexity
+
+Return ONLY valid JSON:
+
+{{
+  "health_score": 0,
+  "risk_level": "Healthy|Needs Attention|At Risk",
+  "velocity_assessment": "short assessment",
+  "completion_forecast": "short forecast",
+  "risk_factors": [
+    "factor 1",
+    "factor 2"
+  ],
+  "recommendations": [
+    "recommendation 1",
+    "recommendation 2"
+  ],
+  "prediction": "short prediction explaining whether the sprint is likely to succeed"
+}}
+
+Rules:
+- health_score must be 0-100.
+- 75-100 = Healthy.
+- 50-74 = Needs Attention.
+- 0-49 = At Risk.
+- Do not invent historical data.
+- Keep responses concise.
+"""
+
+    result = await _gemini_json(
+        prompt,
+        GEMINI_API_KEY,
+    )
+
+    try:
+        health_score = int(
+            result.get("health_score", 50)
+        )
+    except (TypeError, ValueError):
+        health_score = 50
+
+    health_score = max(
+        0,
+        min(100, health_score)
+    )
+
+    risk_level = str(
+        result.get(
+            "risk_level",
+            "Needs Attention"
+        )
+    )
+
+    if risk_level not in {
+        "Healthy",
+        "Needs Attention",
+        "At Risk",
+    }:
+        risk_level = "Needs Attention"
+
+    return {
+        "sprint_name": data.sprint_name,
+        "health_score": health_score,
+        "risk_level": risk_level,
+        "velocity_assessment": str(
+            result.get(
+                "velocity_assessment",
+                "Velocity assessment unavailable."
+            )
+        ),
+        "completion_forecast": str(
+            result.get(
+                "completion_forecast",
+                "Completion forecast unavailable."
+            )
+        ),
+        "risk_factors": (
+            result.get("risk_factors", [])
+            if isinstance(
+                result.get("risk_factors", []),
+                list
+            )
+            else []
+        ),
+        "recommendations": (
+            result.get("recommendations", [])
+            if isinstance(
+                result.get("recommendations", []),
+                list
+            )
+            else []
+        ),
+        "prediction": str(
+            result.get(
+                "prediction",
+                "Sprint prediction completed."
+            )
+        ),
+    }
+    

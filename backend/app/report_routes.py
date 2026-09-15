@@ -2,6 +2,7 @@ from collections import Counter
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+from sqlalchemy import func, case
 
 from app.auth import get_current_user
 from app.database import get_db
@@ -58,30 +59,69 @@ def developer_workload(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    users = db.query(User).all()
-    issues = db.query(Issue).all()
+    """
+    Optimized developer workload report.
+
+    Instead of loading every issue into Python and filtering
+    them separately for every user, aggregation is performed
+    directly by PostgreSQL.
+    """
+
+    # --------------------------------------------------
+    # Count assigned issues for each user
+    # --------------------------------------------------
+
+    workload_rows = (
+        db.query(
+            User.id.label("user_id"),
+            User.name.label("name"),
+
+            func.count(Issue.id).label("total"),
+
+            func.sum(
+                case(
+                    (
+                        Issue.status.notin_(["Resolved", "Closed"]),
+                        1
+                    ),
+                    else_=0
+                )
+            ).label("open"),
+
+            func.sum(
+                case(
+                    (
+                        Issue.status.in_(["Resolved", "Closed"]),
+                        1
+                    ),
+                    else_=0
+                )
+            ).label("completed"),
+        )
+        .outerjoin(
+            Issue,
+            Issue.assigned_to == User.id
+        )
+        .group_by(
+            User.id,
+            User.name
+        )
+        .all()
+    )
+
+    # --------------------------------------------------
+    # Build same response structure as before
+    # --------------------------------------------------
 
     result = []
 
-    for user in users:
-        assigned = [
-            issue
-            for issue in issues
-            if issue.assigned_to == user.id
-        ]
-
+    for row in workload_rows:
         result.append({
-            "user_id": user.id,
-            "name": user.name,
-            "total": len(assigned),
-            "open": len([
-                i for i in assigned
-                if i.status not in {"Resolved", "Closed"}
-            ]),
-            "completed": len([
-                i for i in assigned
-                if i.status in {"Resolved", "Closed"}
-            ]),
+            "user_id": row.user_id,
+            "name": row.name,
+            "total": int(row.total or 0),
+            "open": int(row.open or 0),
+            "completed": int(row.completed or 0),
         })
 
     return result

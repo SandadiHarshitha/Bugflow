@@ -109,6 +109,9 @@ function App() {
   const [developerWorkload, setDeveloperWorkload] = useState([]);
   const [riskRadarResult, setRiskRadarResult] = useState(null);
   const [fixImpactResult, setFixImpactResult] = useState(null);
+  const [codeReviewResult, setCodeReviewResult] = useState(null);
+const [predictiveSprintResult, setPredictiveSprintResult] = useState(null);
+const [codeReviewPrNumber, setCodeReviewPrNumber] = useState("");
   const [historicalResult, setHistoricalResult] = useState(null);
 const [evidenceResult, setEvidenceResult] = useState(null);
 const [investigationResult, setInvestigationResult] = useState(null);
@@ -993,6 +996,218 @@ useEffect(() => {
       alert("Cannot connect to the BugFlow backend.");
     }
   };
+  const runGitHubCodeReview = async () => {
+  const issue = issues.find(
+    (item) =>
+      String(item.id) === String(resolutionIssueId)
+  );
+
+  if (!issue) {
+    alert("Please select an issue first.");
+    return;
+  }
+
+  if (!githubRepoUrl.trim()) {
+    alert("Please save a GitHub repository first.");
+    return;
+  }
+
+  if (!codeReviewPrNumber.trim()) {
+    alert("Please enter a GitHub pull request number.");
+    return;
+  }
+
+  const token = sessionStorage.getItem("token");
+
+  if (!token) {
+    alert("Your session has expired. Please login again.");
+    logout();
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      `${API_URL}/ai/github-code-review`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          issue_id: issue.id,
+          issue_title: issue.title || "",
+          issue_description: issue.description || "",
+          repo_url: githubRepoUrl,
+          pr_number: Number(codeReviewPrNumber),
+        }),
+      }
+    );
+
+    const data = await response.json().catch(
+      () => ({})
+    );
+
+    if (response.status === 401) {
+      logout();
+      return;
+    }
+
+    if (!response.ok) {
+      alert(
+        data.detail ||
+          "GitHub code review failed."
+      );
+      return;
+    }
+
+    setCodeReviewResult(data);
+  } catch (error) {
+    console.error(
+      "GitHub code review error:",
+      error
+    );
+
+    alert(
+      "Cannot connect to the BugFlow backend."
+    );
+  }
+};
+const runPredictiveSprintAnalytics = async () => {
+  const sprint = sprints.find(
+    (item) =>
+      String(item.id) === String(selectedSprintId)
+  );
+
+  if (!sprint) {
+    alert("Please select a sprint first.");
+    return;
+  }
+
+  const sprintIssues = issues.filter((issue) =>
+    sprintIssueIds.includes(issue.id)
+  );
+
+  const total = sprintIssues.length;
+
+  const completed = sprintIssues.filter((issue) =>
+    [
+      "resolved",
+      "closed",
+      "done",
+      "completed",
+    ].includes(
+      String(issue.status || "").toLowerCase()
+    )
+  ).length;
+
+  const remaining = total - completed;
+
+  const highPriority = sprintIssues.filter(
+    (issue) =>
+      ["high", "critical"].includes(
+        String(issue.priority || "").toLowerCase()
+      )
+  ).length;
+
+  const unassigned = sprintIssues.filter(
+    (issue) => !issue.assigned_to
+  ).length;
+
+  const developerIds = [
+    ...new Set(
+      sprintIssues
+        .map((issue) => issue.assigned_to)
+        .filter(Boolean)
+    ),
+  ];
+
+  const progress =
+    total > 0
+      ? Math.round((completed / total) * 100)
+      : 100;
+
+  const historicalSprints = sprints
+    .filter(
+      (item) =>
+        String(item.id) !== String(sprint.id)
+    )
+    .slice(0, 10)
+    .map((item) => {
+      const itemIssues = issues.filter(
+        (issue) =>
+          sprintIssueIds.includes(issue.id)
+      );
+
+      return {
+        name: item.name,
+        status: item.status,
+        issue_count: itemIssues.length,
+      };
+    });
+
+  const token = sessionStorage.getItem("token");
+
+  if (!token) {
+    alert("Your session has expired. Please login again.");
+    logout();
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      `${API_URL}/ai/predictive-sprint`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          sprint_name: sprint.name,
+          total_issues: total,
+          completed_issues: completed,
+          remaining_issues: remaining,
+          high_priority_issues: highPriority,
+          unassigned_issues: unassigned,
+          developer_count: developerIds.length,
+          sprint_progress_percent: progress,
+          historical_sprints: historicalSprints,
+        }),
+      }
+    );
+
+    const data = await response.json().catch(
+      () => ({})
+    );
+
+    if (response.status === 401) {
+      logout();
+      return;
+    }
+
+    if (!response.ok) {
+      alert(
+        data.detail ||
+          "Predictive sprint analysis failed."
+      );
+      return;
+    }
+
+    setPredictiveSprintResult(data);
+  } catch (error) {
+    console.error(
+      "Predictive sprint error:",
+      error
+    );
+
+    alert(
+      "Cannot connect to the BugFlow backend."
+    );
+  }
+};
   // =====================================================
 // =====================================================
   // SPRINT PLANNING
@@ -8275,9 +8490,10 @@ const clearNotifications = async () => {
             <div className="panel-header">
               <div>
                 <h2 style={{ margin: 0 }}>🚀 Smart BugFlow Tools</h2>
-                <p style={{ margin: "6px 0 0", color: "#64748b" }}>
-                  Six additional tools for faster defect investigation, sprint monitoring and integrations.
-                </p>
+                <p>
+  AI-powered tools for faster defect investigation, risk prediction,
+  resolution analysis and development support.
+</p>
               </div>
             </div>
 
@@ -8415,7 +8631,7 @@ const clearNotifications = async () => {
                 issue_age_days: 0,
                 reopened_count: 0,
                 assigned: Boolean(issue.assigned_to),
-                role:"Manager",
+                role:currentUserRole || "Developer",
               }),
             }
           );
@@ -8483,7 +8699,7 @@ const clearNotifications = async () => {
       </p>
     </div>
   )}
-    {/* 🔧 AI BUG FIX IMPACT PREDICTOR */}
+    {/*4. AI BUG FIX IMPACT PREDICTOR */}
   <div
     style={{
       marginTop: "20px",
@@ -8492,7 +8708,7 @@ const clearNotifications = async () => {
     }}
   >
     <h3 style={{ marginTop: 0 }}>
-      🔧 AI Bug Fix Impact Predictor
+      🔧4. AI Bug Fix Impact Predictor
     </h3>
 
     <p style={{ color: "#64748b" }}>
@@ -8949,9 +9165,186 @@ const clearNotifications = async () => {
     </div>
   )}
 </div>
-            {/* 3. KNOWLEDGE BASE */}
+{/* 8. AI GITHUB CODE REVIEW */}
+<div
+  style={{
+    marginTop: "18px",
+    padding: "18px",
+    border: "1px solid #e2e8f0",
+    borderRadius: "14px",
+  }}
+>
+  <h3 style={{ marginTop: 0 }}>
+    🐙8. AI GitHub Code Review
+  </h3>
+
+  <p style={{ color: "#64748b" }}>
+    Analyze a GitHub pull request against a
+    BugFlow issue and receive AI code review
+    and fix suggestions.
+  </p>
+
+  <div
+    style={{
+      display: "grid",
+      gap: "10px",
+    }}
+  >
+    <select
+      value={resolutionIssueId}
+      onChange={(e) => {
+        setResolutionIssueId(e.target.value);
+        setCodeReviewResult(null);
+      }}
+      style={{
+        width: "100%",
+        padding: "12px",
+        border: "1px solid #cbd5e1",
+        borderRadius: "9px",
+      }}
+    >
+      <option value="">
+        Select BugFlow issue
+      </option>
+
+      {issues.map((issue) => (
+        <option
+          key={issue.id}
+          value={issue.id}
+        >
+          #{issue.id} - {issue.title}
+        </option>
+      ))}
+    </select>
+
+    <input
+      value={codeReviewPrNumber}
+      onChange={(e) =>
+        setCodeReviewPrNumber(e.target.value)
+      }
+      placeholder="GitHub Pull Request #"
+      type="number"
+      min="1"
+      style={{
+        width: "100%",
+        boxSizing: "border-box",
+        padding: "12px",
+        border: "1px solid #cbd5e1",
+        borderRadius: "9px",
+      }}
+    />
+
+    <button
+      className="primary-button"
+      onClick={runGitHubCodeReview}
+    >
+      🔍 Review Pull Request
+    </button>
+  </div>
+
+  {codeReviewResult && (
+    <div
+      style={{
+        marginTop: "16px",
+        padding: "16px",
+        background: "#f8fafc",
+        borderRadius: "12px",
+      }}
+    >
+      <h4 style={{ marginTop: 0 }}>
+        AI Code Review
+      </h4>
+
+      <p>
+        <strong>Risk Level:</strong>{" "}
+        {codeReviewResult.risk_level}
+      </p>
+
+      <p>
+        <strong>Summary:</strong>{" "}
+        {codeReviewResult.summary}
+      </p>
+
+      <h4>Findings</h4>
+
+      {(
+        codeReviewResult.findings || []
+      ).map((finding, index) => (
+        <div
+          key={index}
+          style={{
+            marginBottom: "10px",
+            padding: "12px",
+            background: "#ffffff",
+            borderRadius: "8px",
+          }}
+        >
+          <strong>
+            {finding.severity} —{" "}
+            {finding.file}
+          </strong>
+
+          <p style={{ margin: "5px 0" }}>
+            {finding.issue}
+          </p>
+
+          <small>
+            {finding.reason}
+          </small>
+        </div>
+      ))}
+
+      <h4>Suggested Fixes</h4>
+
+      {(
+        codeReviewResult.suggested_fixes || []
+      ).map((fix, index) => (
+        <div
+          key={index}
+          style={{
+            marginBottom: "10px",
+            padding: "12px",
+            background: "#ffffff",
+            borderRadius: "8px",
+          }}
+        >
+          <strong>{fix.file}</strong>
+
+          <p>{fix.suggestion}</p>
+
+          {fix.code && (
+            <pre
+              style={{
+                whiteSpace: "pre-wrap",
+                background: "#0f172a",
+                color: "#ffffff",
+                padding: "10px",
+                borderRadius: "8px",
+                overflowX: "auto",
+              }}
+            >
+              {fix.code}
+            </pre>
+          )}
+        </div>
+      ))}
+
+      <h4>Testing Recommendations</h4>
+
+      <ul>
+        {(
+          codeReviewResult.testing_recommendations ||
+          []
+        ).map((test, index) => (
+          <li key={index}>{test}</li>
+        ))}
+      </ul>
+    </div>
+  )}
+</div>
+            {/* 9. HISTORICAL RESOLUTION KNOWLEDGE BASE */}
             <div style={{ marginTop: "18px", padding: "18px", border: "1px solid #e2e8f0", borderRadius: "14px" }}>
-              <h3 style={{ marginTop: 0 }}>📚 3. Historical Resolution Knowledge Base</h3>
+              <h3 style={{ marginTop: 0 }}>📚 9. Historical Resolution Knowledge Base</h3>
               <p style={{ color: "#64748b" }}>Browse resolved defects and reuse previous investigation knowledge.</p>
               <input
                 value={knowledgeSearch}
@@ -8974,7 +9367,7 @@ const clearNotifications = async () => {
 
             {/* 4. SPRINT HEALTH */}
             <div style={{ marginTop: "18px", padding: "18px", border: "1px solid #e2e8f0", borderRadius: "14px" }}>
-              <h3 style={{ marginTop: 0 }}>❤️ 4. Sprint Health Score</h3>
+              <h3 style={{ marginTop: 0 }}>❤️ Sprint Health Score</h3>
               <p style={{ color: "#64748b" }}>Measure completion, high-risk work and unassigned issues in the selected sprint.</p>
               <select
                 value={selectedSprintId}
@@ -9007,10 +9400,98 @@ const clearNotifications = async () => {
                 );
               })()}
             </div>
+            {/* 10. PREDICTIVE SPRINT ANALYTICS */}
+<div
+  style={{
+    marginTop: "18px",
+    padding: "18px",
+    border: "1px solid #e2e8f0",
+    borderRadius: "14px",
+  }}
+>
+  <h3 style={{ marginTop: 0 }}>
+    🔮10. Predictive Sprint Analytics
+  </h3>
 
-            {/* 5. GITHUB */}
+  <p style={{ color: "#64748b" }}>
+    Use sprint progress, workload, priority and
+    historical information to predict sprint risk.
+  </p>
+
+  <button
+    className="primary-button"
+    onClick={runPredictiveSprintAnalytics}
+    disabled={!selectedSprintId}
+  >
+    🔮 Predict Sprint Health
+  </button>
+
+  {predictiveSprintResult && (
+    <div
+      style={{
+        marginTop: "16px",
+        padding: "16px",
+        background: "#f8fafc",
+        borderRadius: "12px",
+      }}
+    >
+      <h4 style={{ marginTop: 0 }}>
+        Sprint Prediction
+      </h4>
+
+      <p>
+        <strong>Health Score:</strong>{" "}
+        {predictiveSprintResult.health_score}/100
+      </p>
+
+      <p>
+        <strong>Risk Level:</strong>{" "}
+        {predictiveSprintResult.risk_level}
+      </p>
+
+      <p>
+        <strong>Velocity:</strong>{" "}
+        {predictiveSprintResult.velocity_assessment}
+      </p>
+
+      <p>
+        <strong>Completion Forecast:</strong>{" "}
+        {predictiveSprintResult.completion_forecast}
+      </p>
+
+      <p>
+        <strong>Prediction:</strong>{" "}
+        {predictiveSprintResult.prediction}
+      </p>
+
+      <h4>Risk Factors</h4>
+
+      <ul>
+        {(
+          predictiveSprintResult.risk_factors || []
+        ).map((factor, index) => (
+          <li key={index}>{factor}</li>
+        ))}
+      </ul>
+
+      <h4>Recommendations</h4>
+
+      <ul>
+        {(
+          predictiveSprintResult.recommendations || []
+        ).map((recommendation, index) => (
+          <li key={index}>
+            {recommendation}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )}
+</div>
+
+            {/*11.GITHUB INTEGRATION */} 
             <div style={{ marginTop: "18px", padding: "18px", border: "1px solid #e2e8f0", borderRadius: "14px" }}>
-              <h3 style={{ marginTop: 0 }}>🐙 5. GitHub Integration</h3>
+              <h3 style={{ marginTop: 0 }}>🐙11.GitHub Integration</h3>
               <p style={{ color: "#64748b" }}>Connect a repository and quickly open the matching GitHub issue.</p>
               <div style={{ display: "grid", gap: "10px" }}>
                 <input value={githubRepoUrl} onChange={(e) => setGithubRepoUrl(e.target.value)} placeholder="https://github.com/owner/repository" style={{ width: "100%", boxSizing: "border-box", padding: "12px", border: "1px solid #cbd5e1", borderRadius: "9px" }} />
@@ -9023,9 +9504,9 @@ const clearNotifications = async () => {
               </div>
             </div>
 
-            {/* 6. API / INTEGRATIONS */}
+            {/*12.API / INTEGRATIONS */}
             <div style={{ marginTop: "18px", padding: "18px", border: "1px solid #e2e8f0", borderRadius: "14px" }}>
-              <h3 style={{ marginTop: 0 }}>🔌 6. API & Integrations</h3>
+              <h3 style={{ marginTop: 0 }}>🔌12.API & Integrations</h3>
               <p style={{ color: "#64748b" }}>Check the BugFlow API and copy useful integration endpoints.</p>
               <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
                 <button className="primary-button" onClick={checkApiStatus}>Check API Status</button>

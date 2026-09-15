@@ -2050,3 +2050,476 @@ body {
     flex-wrap: wrap !important;
   }
 }
+/* =========================================================
+   MILESTONE 4 - UI / UX OPTIMIZATION
+   Safe enhancement layer
+   Existing BugFlow styles are preserved.
+   ========================================================= */
+
+
+/* =========================================================
+   1. GLOBAL ACCESSIBILITY
+   ========================================================= */
+
+button,
+select,
+input,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.22);
+  outline-offset: 2px;
+}
+
+
+/* =========================================================
+   2. BETTER BUTTON INTERACTION
+   ========================================================= */
+
+button {
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.15s ease;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+
+/* =========================================================
+   3. PANELS - UX IMPROVEMENT
+   ========================================================= */
+
+.panel,
+.stat-card,
+.project-card,
+.ai-result,
+.empty-state-card {
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+
+/* =========================================================
+   4. STAT CARDS
+   ========================================================= */
+
+.stat-card {
+  overflow: hidden;
+}
+
+.stat-card strong {
+  letter-spacing: -0.5px;
+}
+
+
+/* =========================================================
+   5. AI TOOL SECTIONS
+   ========================================================= */
+
+.ai-result {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.ai-result pre {
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ai-result code {
+  overflow-wrap: anywhere;
+}
+
+.result-item {
+  overflow-wrap: anywhere;
+}
+
+
+/* AI result lists */
+
+.result-item ul,
+.result-item ol {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.result-item li {
+  margin-bottom: 5px;
+}
+
+
+/* =========================================================
+   6. AI CARDS - RESPONSIVE
+   ========================================================= */
+
+.ai-card {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.ai-card > button {
+  flex-shrink: 0;
+}
+
+.ai-card > button:hover {
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
+  transform: translateY(-1px);
+}
+
+
+/* =========================================================
+   7. FORM UX
+   ========================================================= */
+
+.modal-input,
+.modal-textarea,
+.ai-modal-textarea,
+.issue-status-select {
+  box-sizing: border-box;
+}
+
+.modal-input::placeholder,
+.modal-textarea::placeholder,
+.ai-modal-textarea::placeholder {
+  color: #94a3b8;
+}
+
+.modal-input:hover,
+.modal-textarea:hover,
+.ai-modal-textarea:hover {
+  border-color: #94a3b8;
+}
+
+
+/* =========================================================
+   8. ISSUE LIST - BETTER READABILITY
+   ========================================================= */
+
+.issue-row {
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.issue-row:hover {
+  background: rgba(248, 250, 252, 0.7);
+}
+
+.issue-content strong {
+  overflow-wrap: anywhere;
+}
+
+.issue-content p {
+  overflow-wrap: anywhere;
+}
+
+
+/* =========================================================
+   9. STATUS / PRIORITY CONTROLS
+   ========================================================= */
+
+.priority,
+.issue-status-select {
+  flex-shrink: 0;
+}
+
+.issue-status-select {
+  min-height: 36px;
+}
+
+
+/* =========================================================
+   10. SCROLLABLE LONG CONTENT
+   ========================================================= */
+
+.panel table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.panel {
+  overflow-wrap: anywhere;
+}
+
+
+/* =========================================================
+   11. RESPONSIVE DASHBOARD
+   ========================================================= */
+
+@media (max-width: 1200px) {
+  .main-content {
+    padding-left: 24px !important;
+    padding-right: 24px !important;
+  }
+
+  .main-content .stats {
+    gap: 14px !important;
+  }
+
+  .stat-card {
+    padding: 17px;
+  }
+}
+
+
+/* =========================================================
+   12. TABLET
+   ========================================================= */
+
+@media (max-width: 900px) {
+
+  .main-content {
+    padding: 20px !important;
+  }
+
+  .top-header h1 {
+    font-size: 25px;
+  }
+
+  .panel {
+    padding: 18px;
+  }
+
+  .ai-card {
+    padding: 19px;
+    gap: 14px;
+  }
+
+  .ai-card > button {
+    width: auto;
+  }
+
+  .form-grid-2 {
+    gap: 14px;
+  }
+}
+
+
+/* =========================================================
+   13. MOBILE UX
+   ========================================================= */
+
+@media (max-width: 600px) {
+
+  .main-content {
+    padding: 16px !important;
+  }
+
+  .top-header {
+    margin-bottom: 20px !important;
+  }
+
+  .top-header h1 {
+    font-size: 23px;
+  }
+
+  .top-header p {
+    font-size: 13px;
+  }
+
+  .panel {
+    padding: 16px;
+    border-radius: 12px;
+  }
+
+  .stat-card {
+    min-height: 105px;
+    padding: 16px;
+  }
+
+  .stat-card strong {
+    font-size: 25px;
+  }
+
+  .stat-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+  }
+
+  .ai-card {
+    padding: 17px;
+    border-radius: 13px;
+  }
+
+  .ai-icon {
+    width: 45px;
+    height: 45px;
+    border-radius: 11px;
+    font-size: 21px;
+  }
+
+  .ai-content h2 {
+    font-size: 16px;
+  }
+
+  .ai-content p {
+    font-size: 12px;
+  }
+
+  .ai-card > button {
+    width: 100%;
+    min-height: 42px;
+  }
+
+  .modal-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .modal-actions button {
+    flex: 1 1 auto;
+  }
+
+  .primary-button,
+  .secondary-button {
+    min-height: 40px;
+  }
+}
+
+
+/* =========================================================
+   14. VERY SMALL PHONES
+   ========================================================= */
+
+@media (max-width: 400px) {
+
+  .main-content {
+    padding: 12px !important;
+  }
+
+  .panel {
+    padding: 13px;
+  }
+
+  .top-header h1 {
+    font-size: 21px;
+  }
+
+  .stat-card {
+    padding: 14px;
+  }
+
+  .stat-card strong {
+    font-size: 23px;
+  }
+
+  .issue-content strong {
+    font-size: 14px;
+  }
+
+  .issue-content p {
+    font-size: 11px;
+  }
+}
+
+
+/* =========================================================
+   15. REDUCED MOTION ACCESSIBILITY
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+
+/* =========================================================
+   16. LOADING / DISABLED UX
+   ========================================================= */
+
+button[disabled],
+button:disabled {
+  box-shadow: none !important;
+}
+
+button:disabled:hover {
+  transform: none !important;
+}
+
+
+/* =========================================================
+   17. LONG TEXT SAFETY
+   ========================================================= */
+
+.ai-result,
+.result-item,
+.issue-content,
+.project-card,
+.panel {
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+
+/* =========================================================
+   18. BETTER EMPTY STATES
+   ========================================================= */
+
+.empty,
+.empty-state-card {
+  user-select: none;
+}
+
+.empty-state-card {
+  background: #fafcff;
+}
+
+
+/* =========================================================
+   19. CONSISTENT CARD HOVER
+   ========================================================= */
+
+.project-card:hover,
+.stat-card:hover {
+  transform: translateY(-2px);
+}
+
+
+/* =========================================================
+   20. PRINT FRIENDLY
+   ========================================================= */
+
+@media print {
+
+  .sidebar,
+  .report-issue-button,
+  button {
+    display: none !important;
+  }
+
+  .main-content {
+    margin-left: 0 !important;
+    width: 100% !important;
+    padding: 0 !important;
+  }
+
+  .panel,
+  .stat-card {
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+}
