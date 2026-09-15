@@ -2523,3 +2523,164 @@ button:disabled:hover {
     break-inside: avoid;
   }
 }
+/* =========================================================
+   MILESTONE 4 - UI/UX POLISH
+   ========================================================= */
+
+/* Better button interaction */
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.primary-button,
+.secondary-button,
+.small-button,
+.report-issue-button,
+.logout-button,
+.nav-item {
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.primary-button:hover,
+.report-issue-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.18);
+}
+
+.primary-button:active,
+.secondary-button:active,
+.small-button:active,
+.report-issue-button:active {
+  transform: translateY(0);
+}
+
+/* Disabled buttons */
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Better cards */
+.panel,
+.stat-card,
+.project-card,
+.empty-state-card,
+.sprint-create-card {
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.panel:hover {
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+/* Better issue rows */
+.issue-row {
+  transition: background 0.18s ease;
+  border-radius: 8px;
+}
+
+.issue-row:hover {
+  background: #f8fafc;
+}
+
+/* Better navigation */
+.nav-item:hover {
+  transform: translateX(2px);
+}
+
+.nav-item.active {
+  transform: translateX(0);
+}
+
+/* Better form fields */
+.modal-input:hover,
+.modal-textarea:hover,
+.ai-modal-textarea:hover {
+  border-color: #94a3b8;
+}
+
+/* Professional focus accessibility */
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.18);
+  outline-offset: 2px;
+}
+
+/* Smooth page appearance */
+.page-panel,
+.dashboard-grid,
+.stats,
+.ai-card {
+  animation: bugflowFadeIn 0.25s ease-out;
+}
+
+@keyframes bugflowFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Better mobile spacing */
+@media (max-width: 600px) {
+  .panel {
+    padding: 18px;
+  }
+
+  .stat-card {
+    min-height: 105px;
+    padding: 16px;
+  }
+
+  .top-header h1 {
+    font-size: 24px;
+  }
+
+  .primary-button,
+  .secondary-button,
+  .report-issue-button {
+    width: 100%;
+  }
+
+  .panel-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .modal-actions {
+    flex-wrap: wrap;
+  }
+
+  .modal-actions button {
+    flex: 1;
+    min-width: 120px;
+  }
+}
+
+/* Reduced motion accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
