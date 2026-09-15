@@ -20,11 +20,7 @@ from app.database import Base
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(
-        Integer,
-        primary_key=True,
-        index=True
-    )
+    id = Column(Integer, primary_key=True, index=True)
 
     name = Column(
         String(100),
@@ -56,11 +52,7 @@ class User(Base):
 class Project(Base):
     __tablename__ = "projects"
 
-    id = Column(
-        Integer,
-        primary_key=True,
-        index=True
-    )
+    id = Column(Integer, primary_key=True, index=True)
 
     project_name = Column(
         String(100),
@@ -80,11 +72,7 @@ class Project(Base):
 class Issue(Base):
     __tablename__ = "issues"
 
-    id = Column(
-        Integer,
-        primary_key=True,
-        index=True
-    )
+    id = Column(Integer, primary_key=True, index=True)
 
     title = Column(
         String(200),
@@ -161,6 +149,28 @@ class Issue(Base):
         index=True
     )
 
+    # ==================================================
+    # DATABASE OPTIMIZATION
+    # ==================================================
+
+    __table_args__ = (
+        Index(
+            "ix_issues_project_status",
+            "project_id",
+            "status"
+        ),
+        Index(
+            "ix_issues_assigned_status",
+            "assigned_to",
+            "status"
+        ),
+        Index(
+            "ix_issues_project_priority",
+            "project_id",
+            "priority"
+        ),
+    )
+
 
 # ==================================================
 # COMMENT
@@ -169,11 +179,7 @@ class Issue(Base):
 class Comment(Base):
     __tablename__ = "comments"
 
-    id = Column(
-        Integer,
-        primary_key=True,
-        index=True
-    )
+    id = Column(Integer, primary_key=True, index=True)
 
     content = Column(
         String(1000),
@@ -200,6 +206,18 @@ class Comment(Base):
         index=True
     )
 
+    # ==================================================
+    # DATABASE OPTIMIZATION
+    # ==================================================
+
+    __table_args__ = (
+        Index(
+            "ix_comments_issue_created",
+            "issue_id",
+            "created_at"
+        ),
+    )
+
 
 # ==================================================
 # ISSUE ACTIVITY
@@ -208,11 +226,7 @@ class Comment(Base):
 class IssueActivity(Base):
     __tablename__ = "issue_activity"
 
-    id = Column(
-        Integer,
-        primary_key=True,
-        index=True
-    )
+    id = Column(Integer, primary_key=True, index=True)
 
     issue_id = Column(
         Integer,
@@ -245,6 +259,23 @@ class IssueActivity(Base):
         index=True
     )
 
+    # ==================================================
+    # DATABASE OPTIMIZATION
+    # ==================================================
+
+    __table_args__ = (
+        Index(
+            "ix_activity_issue_created",
+            "issue_id",
+            "created_at"
+        ),
+        Index(
+            "ix_activity_user_created",
+            "user_id",
+            "created_at"
+        ),
+    )
+
 
 # ==================================================
 # ISSUE ATTACHMENT
@@ -253,11 +284,7 @@ class IssueActivity(Base):
 class IssueAttachment(Base):
     __tablename__ = "issue_attachments"
 
-    id = Column(
-        Integer,
-        primary_key=True,
-        index=True
-    )
+    id = Column(Integer, primary_key=True, index=True)
 
     issue_id = Column(
         Integer,
@@ -302,11 +329,7 @@ class IssueAttachment(Base):
 class TimeLog(Base):
     __tablename__ = "time_logs"
 
-    id = Column(
-        Integer,
-        primary_key=True,
-        index=True
-    )
+    id = Column(Integer, primary_key=True, index=True)
 
     issue_id = Column(
         Integer,
@@ -338,6 +361,23 @@ class TimeLog(Base):
         index=True
     )
 
+    # ==================================================
+    # DATABASE OPTIMIZATION
+    # ==================================================
+
+    __table_args__ = (
+        Index(
+            "ix_timelogs_issue_user",
+            "issue_id",
+            "user_id"
+        ),
+        Index(
+            "ix_timelogs_issue_created",
+            "issue_id",
+            "created_at"
+        ),
+    )
+
 
 # ==================================================
 # NOTIFICATION
@@ -346,11 +386,7 @@ class TimeLog(Base):
 class Notification(Base):
     __tablename__ = "notifications"
 
-    id = Column(
-        Integer,
-        primary_key=True,
-        index=True
-    )
+    id = Column(Integer, primary_key=True, index=True)
 
     user_id = Column(
         Integer,
@@ -389,4 +425,21 @@ class Notification(Base):
         DateTime,
         server_default=func.now(),
         index=True
+    )
+
+    # ==================================================
+    # DATABASE OPTIMIZATION
+    # ==================================================
+
+    __table_args__ = (
+        Index(
+            "ix_notifications_user_read",
+            "user_id",
+            "is_read"
+        ),
+        Index(
+            "ix_notifications_user_created",
+            "user_id",
+            "created_at"
+        ),
     )
